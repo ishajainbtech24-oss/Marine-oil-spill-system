@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIH26143 — Marine Oil-Spill Detection, Source Attribution & Alert System</title>
+  <meta name="description" content="Mission-critical maritime surveillance and SAR-based oil spill intelligence platform for detection, tracking, and AIS-missing vessel source attribution.">
+
+  <!-- Google Fonts: Space Grotesk & Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- Application Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Leaflet JS CDN -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+  <div id="app-shell">
+    
+    <!-- ==========================================
+         LEFT NAVIGATION RAIL (240-250px)
+         ========================================== -->
+    <aside class="nav-rail" aria-label="Operational Navigation">
+      <div>
+        <div class="nav-brand">
+          <div class="brand-icon-box">
+            <i data-lucide="radar"></i>
+          </div>
+          <div class="brand-text">
+            <span class="brand-title">MARITIME INTEL</span>
+            <span class="brand-tag">SIH26143 COMMAND</span>
+          </div>
+        </div>
+
+        <div class="nav-section-title">SURVEILLANCE MODULES</div>
+
+        <nav class="nav-menu">
+          <button type="button" class="nav-item active" data-view="command-center" id="nav-command-center" title="Mission Command Center">
+            <i data-lucide="layout-dashboard"></i>
+            <span>COMMAND CENTER</span>
+          </button>
+
+          <button type="button" class="nav-item" data-view="spill-monitoring" id="nav-spill-monitoring" title="Satellite SAR Spill Monitoring">
+            <i data-lucide="satellite"></i>
+            <span>SPILL MONITORING</span>
+          </button>
+
+          <button type="button" class="nav-item" data-view="source-attribution" id="nav-source-attribution" title="AIS-Independent SAR Source Attribution">
+            <i data-lucide="crosshair"></i>
+            <span>SOURCE ATTRIBUTION</span>
+            <span class="badge-pill">USP</span>
+          </button>
+
+          <button type="button" class="nav-item" data-view="drift-risk" id="nav-drift-risk" title="Hydrodynamic Drift & Coastline Vulnerability">
+            <i data-lucide="route"></i>
+            <span>DRIFT &amp; RISK</span>
+          </button>
+
+          <button type="button" class="nav-item" data-view="alerts-response" id="nav-alerts-response" title="Multi-Agency Dispatch Alerts">
+            <i data-lucide="triangle-alert"></i>
+            <span>ALERTS &amp; RESPONSE</span>
+            <span class="badge-pill" style="color: var(--color-red); border-color: rgba(232,93,93,0.3);">03</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Left Rail Telemetry Footer -->
+      <div class="nav-footer">
+        <div class="system-telemetry-box">
+          <div class="telemetry-row">
+            <span class="telemetry-label">SAR ORBIT FEED</span>
+            <span class="telemetry-value">SENTINEL-1B</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="telemetry-label">AIS NETWORK</span>
+            <span class="telemetry-value" style="color: var(--color-amber);">8 GAPS DETECTED</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="telemetry-label">DATA PIPELINE</span>
+            <span class="telemetry-value">MOCK (STANDBY)</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==========================================
+         MAIN WORKSPACE AREA
+         ========================================== -->
+    <div class="main-layout">
+      
+      <!-- Top System Bar -->
+      <header class="top-system-bar">
+        <div class="topbar-left">
+          <div class="topbar-title">
+            <i data-lucide="shield-alert" style="color: var(--color-teal); width: 18px; height: 18px;"></i>
+            <span>MARITIME INTELLIGENCE SYSTEM</span>
+          </div>
+          <span class="topbar-subtitle">Marine Oil-Spill Detection &amp; Source Attribution Platform</span>
+        </div>
+
+        <div class="topbar-right">
+          <!-- Operational Heartbeat Indicator -->
+          <div class="system-status-indicator" title="System state verified active">
+            <span class="pulse-dot"></span>
+            <span>SYSTEM OPERATIONAL</span>
+          </div>
+
+          <!-- Real-Time Live UTC Clock -->
+          <div class="utc-clock-widget" title="Live Coordinated Universal Time">
+            <i data-lucide="clock"></i>
+            <span id="utc-clock-display">2026-09-10 00:00:00</span>
+            <span class="utc-label">UTC</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Viewports Switcher -->
+      <div class="view-viewport">
+
+        <!-- ==========================================
+             VIEW 1: COMMAND CENTER (ACTIVE)
+             ========================================== -->
+        <main class="view-container active-view" id="view-command-center">
+          
+          <!-- Compact Statistics Strip -->
+          <section class="stats-strip" aria-label="Key Maritime Metrics">
+            <div class="stat-card alert-card">
+              <div class="stat-info">
+                <span class="stat-label">ACTIVE SPILLS</span>
+                <span class="stat-value red" id="stat-active-spills">03</span>
+              </div>
+              <div class="stat-icon">
+                <i data-lucide="flame"></i>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="stat-label">VESSELS MONITORED</span>
+                <span class="stat-value" id="stat-vessels-monitored">127</span>
+              </div>
+              <div class="stat-icon">
+                <i data-lucide="ship"></i>
+              </div>
+            </div>
+
+            <div class="stat-card warning-card">
+              <div class="stat-info">
+                <span class="stat-label">AIS GAPS</span>
+                <span class="stat-value amber" id="stat-ais-gaps">08</span>
+              </div>
+              <div class="stat-icon">
+                <i data-lucide="radio-off"></i>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-info">
+                <span class="stat-label">HIGH-RISK ZONES</span>
+                <span class="stat-value" id="stat-high-risk">04</span>
+              </div>
+              <div class="stat-icon">
+                <i data-lucide="shield-alert"></i>
+              </div>
+            </div>
+
+            <div class="stat-card alert-card">
+              <div class="stat-info">
+                <span class="stat-label">ACTIVE ALERTS</span>
+                <span class="stat-value red" id="stat-active-alerts">03</span>
+              </div>
+              <div class="stat-icon">
+                <i data-lucide="bell-ring"></i>
+              </div>
+            </div>
+          </section>
+
+          <!-- Command Center Main Workspace -->
+          <div class="command-workspace">
+            
+            <!-- Map Canvas Wrapper -->
+            <div class="map-viewport-wrapper">
+              
+              <!-- Leaflet Map Container -->
+              <div id="leaflet-map" tabindex="0" role="region" aria-label="Interactive Maritime Map"></div>
+
+              <!-- Floating Top Layer Toggles -->
+              <div class="map-header-overlay">
+                <div class="map-title-tag">
+                  <i data-lucide="compass"></i>
+                  <span>INDIAN EEZ MARITIME THEATRE</span>
+                </div>
+
+                <div class="layer-toggles-bar" role="group" aria-label="Map Layer Filters">
+                  <button type="button" class="layer-btn active" data-layer="bathymetry" id="layer-toggle-bathymetry" title="Toggle GEBCO Ocean Bathymetry & Seabed Shaded Relief">
+                    <span class="layer-bullet bathymetry"></span>
+                    <span>BATHYMETRY</span>
+                  </button>
+                  <button type="button" class="layer-btn active" data-layer="contours" id="layer-toggle-contours" title="Toggle Nautical Depth Contours">
+                    <span class="layer-bullet contours"></span>
+                    <span>DEPTH CONTOURS</span>
+                  </button>
+                  <button type="button" class="layer-btn active" data-layer="spills" id="layer-toggle-spills">
+                    <span class="layer-bullet spill"></span>
+                    <span>OIL SPILLS (3)</span>
+                  </button>
+                  <button type="button" class="layer-btn active" data-layer="vessels" id="layer-toggle-vessels">
+                    <span class="layer-bullet vessel"></span>
+                    <span>VESSELS (12)</span>
+                  </button>
+                  <button type="button" class="layer-btn active" data-layer="stations" id="layer-toggle-stations">
+                    <span class="layer-bullet station"></span>
+                    <span>CG BASES (5)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Floating Map Legend -->
+              <div class="map-legend-overlay">
+                <div class="legend-title">TACTICAL LEGEND</div>
+                <div class="legend-items">
+                  <div class="legend-item">
+                    <div class="legend-swatch spill"></div>
+                    <span>OIL SPILL (SAR ANOMALY)</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-swatch vessel">
+                      <i data-lucide="navigation"></i>
+                    </div>
+                    <span>VESSEL (AIS / SAR TARGET)</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-swatch station">
+                      <i data-lucide="shield"></i>
+                    </div>
+                    <span>RESPONSE BASE (MRCC / CG)</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-swatch bathymetry"></div>
+                    <span>BATHYMETRY (GEBCO RELIEF)</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-swatch contours"></div>
+                    <span>DEPTH CONTOURS (NAUTICAL)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Incident Detail Drawer (Slide-in for OS-024) -->
+            <aside class="incident-drawer" id="incident-drawer" aria-label="Incident Investigation Dossier">
+              <div class="drawer-header">
+                <div class="drawer-title-group">
+                  <span class="drawer-category">INCIDENT DOSSIER</span>
+                  <h2 class="drawer-title" id="drawer-spill-id">OIL SPILL #OS-024</h2>
+                </div>
+                <button type="button" class="drawer-close-btn" id="drawer-close-btn" title="Close Dossier">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+
+              <div class="drawer-body">
+                <!-- Highlighted USP Callout -->
+                <div class="usp-alert-callout">
+                  <div class="callout-header">
+                    <i data-lucide="alert-triangle"></i>
+                    <span>CRITICAL USP: AIS-MISSING CASE</span>
+                  </div>
+                  <p class="callout-text">
+                    Transponder transmission gaps detected across anomalous 38nm corridor. Automated SAR vessel feature classification and CFAR backscatter estimation invoked for suspect attribution.
+                  </p>
+                </div>
+
+                <!-- Incident Telemetry Grid -->
+                <div class="drawer-section-title">DETECTION TELEMETRY</div>
+                <div class="telemetry-grid">
+                  <div class="telemetry-cell">
+                    <span class="cell-label">INVESTIGATION STATUS</span>
+                    <span class="cell-value highlight-teal" id="drawer-status">ACTIVE INVESTIGATION</span>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">RISK LEVEL</span>
+                    <span class="cell-value highlight-red" id="drawer-risk">HIGH</span>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">DETECTED (UTC)</span>
+                    <span class="cell-value" id="drawer-time">10 Sep 2026 · 08:42 UTC</span>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">SLICK AREA</span>
+                    <span class="cell-value highlight-teal" id="drawer-area">14.8 km²</span>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">DETECTION CONFIDENCE</span>
+                    <span class="cell-value highlight-teal" id="drawer-confidence">94.2%</span>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">AIS STATUS</span>
+                    <span class="cell-value highlight-amber" id="drawer-ais">UNAVAILABLE</span>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">ESTIMATED VOLUME</span>
+                    <span class="cell-value" id="drawer-volume">420 Tonnes</span>
+                  </div>
+                  <div class="telemetry-cell">
+                    <span class="cell-label">PRIMARY SENSOR</span>
+                    <span class="cell-value" id="drawer-sensor" style="font-size:11px;">Sentinel-1B C-SAR</span>
+                  </div>
+                </div>
+
+                <div class="drawer-section-title">INTELLIGENCE SUMMARY</div>
+                <div class="drawer-narrative" id="drawer-description">
+                  High-backscatter signature dark patch with coherent edge damping detected during ascending orbit pass. AIS coverage gap detected across a 38nm radius between 05:00 and 08:00 UTC.
+                </div>
+
+                <!-- Attribution CTA Navigation Button -->
+                <button type="button" class="attribution-cta-btn" id="btn-open-attribution">
+                  <i data-lucide="crosshair"></i>
+                  <span>OPEN ATTRIBUTION ANALYSIS</span>
+                </button>
+              </div>
+            </aside>
+
+            <!-- Secondary Panel: Active Incidents List -->
+            <aside class="command-sidebar-panel" aria-label="Active Incidents List">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <i data-lucide="activity"></i>
+                  <span>ACTIVE INCIDENTS</span>
+                </div>
+                <span class="panel-count-badge" id="incident-count-badge">3 DETECTED</span>
+              </div>
+
+              <div class="incidents-list" id="active-incidents-list">
+                <!-- Dynamically populated from mockData.js / API -->
+              </div>
+            </aside>
+
+          </div>
+        </main>
+
+        <!-- ==========================================
+             VIEW 2: SPILL MONITORING (STANDBY PLACEHOLDER)
+             ========================================== -->
+        <section class="view-container module-standby-view" id="view-spill-monitoring">
+          <div class="module-standby-card">
+            <div class="module-icon-container">
+              <i data-lucide="satellite"></i>
+            </div>
+            <span class="module-badge-tag">MODULE 02 · STANDBY</span>
+            <h2 class="module-title">SPILL MONITORING</h2>
+            <p class="module-desc">
+              High-resolution satellite constellation telemetry hub. Ingests raw SAR backscatter intensity matrices (Sentinel-1, Radarsat, RISAT) and MSI optical channels to perform automatic slick segmentation and volume estimation.
+            </p>
+            <div class="module-spec-strip">
+              <div class="spec-item">
+                <span class="spec-label">SAR Pipeline</span>
+                <span class="spec-val">CFAR Adaptive</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Sensor Constellation</span>
+                <span class="spec-val">C-Band / X-Band</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Status</span>
+                <span class="spec-val">Ready for Python ML</span>
+              </div>
+            </div>
+            <button type="button" class="return-command-btn" data-return="command-center">
+              <i data-lucide="arrow-left"></i>
+              <span>RETURN TO COMMAND CENTER</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ==========================================
+             VIEW 3: SOURCE ATTRIBUTION (STANDBY PLACEHOLDER - CORE USP)
+             ========================================== -->
+        <section class="view-container module-standby-view" id="view-source-attribution">
+          <div class="module-standby-card">
+            <div class="module-icon-container">
+              <i data-lucide="crosshair"></i>
+            </div>
+            <span class="module-badge-tag" style="background:rgba(244,185,66,0.12); color:var(--color-amber); border-color:rgba(244,185,66,0.4);">
+              CORE USP · AIS-INDEPENDENT ATTRIBUTION
+            </span>
+            <h2 class="module-title">SOURCE ATTRIBUTION</h2>
+            <p class="module-desc">
+              Solves the hard case where offending vessels extinguish AIS transponders. Employs Lagrangian reverse-hydrodynamic particle backtracking combined with SAR vessel length/beam feature extraction to score candidate vessels.
+            </p>
+            <div class="module-spec-strip">
+              <div class="spec-item">
+                <span class="spec-label">Target Spill</span>
+                <span class="spec-val" style="color:var(--color-red);">OS-024 (Arabian Sea)</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Top Suspect</span>
+                <span class="spec-val" style="color:var(--color-amber);">Unknown Target Alpha (SAR-104)</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Attribution Score</span>
+                <span class="spec-val">91.4% Confidence</span>
+              </div>
+            </div>
+            <button type="button" class="return-command-btn" data-return="command-center">
+              <i data-lucide="arrow-left"></i>
+              <span>RETURN TO COMMAND CENTER</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ==========================================
+             VIEW 4: DRIFT & RISK (STANDBY PLACEHOLDER)
+             ========================================== -->
+        <section class="view-container module-standby-view" id="view-drift-risk">
+          <div class="module-standby-card">
+            <div class="module-icon-container">
+              <i data-lucide="route"></i>
+            </div>
+            <span class="module-badge-tag">MODULE 04 · STANDBY</span>
+            <h2 class="module-title">DRIFT &amp; RISK PREDICTION</h2>
+            <p class="module-desc">
+              Hydrodynamic oil dispersion and trajectory forecasting module. Integrates INCOIS ocean current models, ECMWF wind fields, and coastline sensitivity index to predict 72-hour shoreline impact zones and ecological exposure.
+            </p>
+            <div class="module-spec-strip">
+              <div class="spec-item">
+                <span class="spec-label">Forecast Horizon</span>
+                <span class="spec-val">72 Hours</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Hydro Model</span>
+                <span class="spec-val">2D Lagrangian</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Coastal Vulnerability</span>
+                <span class="spec-val" style="color:var(--color-red);">High Sensitivity</span>
+              </div>
+            </div>
+            <button type="button" class="return-command-btn" data-return="command-center">
+              <i data-lucide="arrow-left"></i>
+              <span>RETURN TO COMMAND CENTER</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ==========================================
+             VIEW 5: ALERTS & RESPONSE (STANDBY PLACEHOLDER)
+             ========================================== -->
+        <section class="view-container module-standby-view" id="view-alerts-response">
+          <div class="module-standby-card">
+            <div class="module-icon-container">
+              <i data-lucide="triangle-alert"></i>
+            </div>
+            <span class="module-badge-tag">MODULE 05 · STANDBY</span>
+            <h2 class="module-title">ALERTS &amp; RESPONSE DISPATCH</h2>
+            <p class="module-desc">
+              Inter-agency automated alert escalation and response coordination engine. Generates standardized Maritime Search and Rescue (MRCC), Indian Coast Guard, and DG Shipping incident dispatch notices with containment boom guidance.
+            </p>
+            <div class="module-spec-strip">
+              <div class="spec-item">
+                <span class="spec-label">Dispatched Notices</span>
+                <span class="spec-val" style="color:var(--color-amber);">3 Active</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Agencies Linked</span>
+                <span class="spec-val">ICG, MRCC, DG Shipping</span>
+              </div>
+              <div class="spec-item">
+                <span class="spec-label">Status</span>
+                <span class="spec-val">Active Monitoring</span>
+              </div>
+            </div>
+            <button type="button" class="return-command-btn" data-return="command-center">
+              <i data-lucide="arrow-left"></i>
+              <span>RETURN TO COMMAND CENTER</span>
+            </button>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic Modules -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
